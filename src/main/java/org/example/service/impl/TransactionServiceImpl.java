@@ -1,18 +1,18 @@
 package org.example.service.impl;
 
 
-//import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.example.builder.ReceivableBuilder;
 import org.example.client.ReceivablesApiClient;
 import org.example.client.TransactionApiClient;
-//import org.example.exceptions.ExceptionService;
 import org.example.mapper.TransactionMapper;
 import org.example.model.request.RequestTransactionDTO;
 import org.example.model.response.ResponseTransaction;
 import org.example.model.transaction.TransactionDTO;
 import org.example.service.ITransactionService;
 import org.example.util.ConstantProcesor;
+import org.springframework.stereotype.Service;
 
+@Service
 public class TransactionServiceImpl implements ITransactionService {
 
     private final TransactionApiClient transactionApiClient;
@@ -38,8 +38,8 @@ public class TransactionServiceImpl implements ITransactionService {
     }
 
     //@CircuitBreaker(name = "ApiTransactionService", fallbackMethod = "failService")
-    private ResponseTransaction generateData (TransactionDTO trxDto) {
-        transactionApiClient.createTransaction(trxDto);
+    private ResponseTransaction generateData(TransactionDTO trxDto) {
+        trxDto = transactionApiClient.createTransaction(trxDto);
         receivablesApiClient.createReceivable(ReceivableBuilder.buildReceivable(trxDto));
         ResponseTransaction responseTransaction = new ResponseTransaction();
         responseTransaction.setTransactionId(trxDto.getId());

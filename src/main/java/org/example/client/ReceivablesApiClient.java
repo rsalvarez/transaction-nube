@@ -11,6 +11,7 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,6 +25,15 @@ public class ReceivablesApiClient {
 
     public ReceivablesApiClient(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
+    }
+
+    public String getNextId() {
+        List<ReceivablesDTO>  data =   getAllReceivables();
+        if (data.size() == 0)
+            return "1";
+        Integer  ii = Integer.valueOf(data.stream().max(Comparator.comparing(ReceivablesDTO::getId)).get().getId())+1;
+        return String.valueOf(ii);
+
     }
 
     public List<ReceivablesDTO> getAllReceivables() {
@@ -60,6 +70,7 @@ public class ReceivablesApiClient {
         String url = UriComponentsBuilder.fromUriString(baseUrl)
                 .path(API_PATH).toUriString();
         try {
+            newReceivable.setId(getNextId());
             ResponseEntity<ReceivablesDTO> createdReceivable = restTemplate.postForEntity(
                     url,
                     newReceivable,

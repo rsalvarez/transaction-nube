@@ -15,8 +15,11 @@ public class ReceivableBuilder {
         BigDecimal commisionCalc = (commission(data.getMethod()).divide(BigDecimal.valueOf(100)).multiply(data.getValue()));
         BigDecimal total = data.getValue().subtract(commisionCalc);
         response.setDiscount(commission(data.getMethod()));
+        String status = data.getMethod().equals(PayMethod.credit_card) ? "waiting_funds" : "paid";
+        response.setStatus(status);
         response.setTotal(total);
         response.setSubtotal(data.getValue());
+        response.setTransactionId(data.getId());
         return response;
     }
 

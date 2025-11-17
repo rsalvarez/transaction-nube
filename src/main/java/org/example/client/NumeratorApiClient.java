@@ -1,19 +1,21 @@
 package org.example.client;
 
-import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
-import io.github.resilience4j.retry.annotation.Retry;
+import org.example.client.helper.HelperNumeration;
 import org.example.exceptions.ExceptionService;
 import org.example.model.numerator.NumeratorRequestTestAndSet;
+import org.example.model.numerator.ResponseNumerator;
+import org.example.util.ConstantProcesor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import static org.example.util.ConstantProcesor.FAILED;
 import static org.example.util.ConstantProcesor.OK;
+import static org.example.util.ConstantProcesor.pathgetNumerator;
 
 
 /**
@@ -27,27 +29,35 @@ public class NumeratorApiClient {
     private String baseUrl;
     @Value("${numerator.api.path.generate-id}")
     private String generateIdPath;
+
+    private final HelperNumeration helperNumeration;
+
+    @Value("${numerator.api.path.getId}")
+    private String getId;
     private final RestTemplate restTemplate;
 
-    public NumeratorApiClient(RestTemplate restTemplate) {
+    public NumeratorApiClient(HelperNumeration helperNumeration, RestTemplate restTemplate) {
+        this.helperNumeration = helperNumeration;
         this.restTemplate = restTemplate;
     }
 
 
     //@CircuitBreaker(name = "NumeratorApiClient", fallbackMethod = "handleRollback")
     public String getIdNumber() {
-        look(HttpMethod.POST);
-        String current = getNumber();
+        String result = helperNumeration.look(HttpMethod.POST);
+        if (result.equals(FAILED))
+            throw new ExceptionService("Error blocking ID number after maximum retries", "NumeratorApi.getIdNumber",baseUrl, getId );
+        ResponseNumerator current = getNumber();
         NumeratorRequestTestAndSet data = new NumeratorRequestTestAndSet();
-        data.setOldValue(Double.valueOf(current));
-        data.setNewValue(Double.valueOf(String.valueOf(Integer.getInteger(current)+1)));
+        data.setOldValue(Double.valueOf(current.getNumerator()));
+        data.setNewValue(Double.valueOf(String.valueOf(Integer.valueOf(current.getNumerator())+1)));
         String newId = getNumeratorId(data);
         return newId;
     }
 
     public String handleRollback(ExceptionService ee) {
         if (!ee.getOrigin().equals("look")) {
-            look(HttpMethod.DELETE);
+            helperNumeration.look(HttpMethod.DELETE);
             return OK;
         }
         return FAILED;
@@ -61,7 +71,7 @@ public class NumeratorApiClient {
      * @return El cuerpo de la respuesta como un String.
      */
 
-    public String getNumeratorId(NumeratorRequestTestAndSet requestBody) {
+    private String getNumeratorId(NumeratorRequestTestAndSet requestBody) {
 
 
         // 3. Construir la URL completa
@@ -76,16 +86,17 @@ public class NumeratorApiClient {
             // El primer argumento es la URL
             // El segundo argumento es el body del request
             // El tercer argumento es el tipo de respuesta esperado (String.class)
-            ResponseEntity<String> response = restTemplate.postForEntity(
+            ResponseEntity<ResponseNumerator> response = restTemplate.exchange(
                     apiUrl,
-                    requestBody,
-                    String.class
+                    HttpMethod.PUT,
+                    new HttpEntity<>(requestBody),
+                    ResponseNumerator.class
             );
 
             // Verificar el código de estado HTTP
             if (response.getStatusCode().is2xxSuccessful() && response.hasBody()) {
                 // Devolver el cuerpo de la respuesta
-                return response.getBody();
+                return response.getBody().getNumerator();
             } else {
                 throw new ExceptionService("Error retrieving the new number", "getNumeratorId",  baseUrl, generateIdPath);
             }
@@ -96,36 +107,19 @@ public class NumeratorApiClient {
         }
     }
 
-    private String getNumber() {
+    private ResponseNumerator getNumber() {
        String getnumber = UriComponentsBuilder
                 .fromUriString(baseUrl)
-                .path(generateIdPath)
+                .path(getId)
                 .build()
                 .toUriString();
-       ResponseEntity<String> body =  restTemplate.getForEntity(getnumber,String.class);
+       ResponseEntity<ResponseNumerator> body =  restTemplate.getForEntity(getnumber,ResponseNumerator.class);
        if (body.getStatusCode().is2xxSuccessful() && body.hasBody()) {
            return body.getBody();
        }
        throw new ExceptionService("Error retrieving the current number", "getNumber",  baseUrl, generateIdPath);
     }
-    @Retry(name = "NumeratorApiClient")
-    private String look(HttpMethod http) {
-        String unLook = UriComponentsBuilder
-                .fromUriString(baseUrl)
-                .path("/numerator/lock")
-                .build()
-                .toUriString();
-       try {
-           if (http.equals(HttpMethod.DELETE))
-               restTemplate.delete(unLook);
-           else {
-               restTemplate.postForEntity(unLook,null,String.class);
-           }
-       } catch (HttpServerErrorException ee) {
-           throw new ExceptionService("Error unlook the current number (" +http.toString() + ")" , "look",  baseUrl, "/numerator/lock");
-       }
-        return OK;
-    }
+
 
 
 

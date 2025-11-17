@@ -21,5 +21,5 @@ public class TransactionDTO {
     private String cardNumber;
     private String cardHolderName;
     private String cardExpirationDate;
-    private String cardCvv;
+    private String cvv;
 }

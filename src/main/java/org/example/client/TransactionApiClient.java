@@ -1,5 +1,6 @@
 package org.example.client;
 
+import org.example.client.helper.HelperNumeration;
 import org.example.exceptions.ExceptionService;
 import org.example.model.transaction.TransactionDTO;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,8 +25,13 @@ public class TransactionApiClient {
     private final RestTemplate restTemplate;
     private final String API_PATH = "/transactions";
 
-    public TransactionApiClient(RestTemplate restTemplate) {
+    private final NumeratorApiClient numeratorApiClient;
+    private final HelperNumeration helperNumeration;
+
+    public TransactionApiClient(RestTemplate restTemplate, NumeratorApiClient numeratorApiClient, HelperNumeration helperNumeration) {
         this.restTemplate = restTemplate;
+        this.numeratorApiClient = numeratorApiClient;
+        this.helperNumeration = helperNumeration;
     }
 
     public List<TransactionDTO> getAllTransactions() {
@@ -79,12 +85,14 @@ public class TransactionApiClient {
                 .toUriString();
 
         try {
+            newTransaction.setId(numeratorApiClient.getIdNumber());
             ResponseEntity<TransactionDTO> createdTransaction = restTemplate.postForEntity(
                     url,
                     newTransaction,
                     TransactionDTO.class
             );
             if (createdTransaction.getStatusCode().is2xxSuccessful() && createdTransaction.hasBody()) {
+                helperNumeration.look(HttpMethod.DELETE);
                 return createdTransaction.getBody();
             }
             throw new ExceptionService(createdTransaction.getStatusCode().toString(), "createReceivable", baseUrl, API_PATH);

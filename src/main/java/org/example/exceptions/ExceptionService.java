@@ -19,7 +19,13 @@ public class ExceptionService extends RuntimeException{
         this.path = path;
     }
 
-
-
-
+    @Override
+    public String toString() {
+        return "{" +
+                "message ='" + getMessage() + '\'' +
+                "origin ='" + origin + '\'' +
+                ", urlHost='" + urlHost + '\'' +
+                ", path='" + path + '\'' +
+                '}';
+    }
 }
